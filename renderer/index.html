@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'">
+  <title>Rave AI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Reusable logo -->
+  <svg width="0" height="0" class="defs" aria-hidden="true">
+    <defs>
+      <linearGradient id="rave-grad" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" stop-color="#2563eb"/>
+        <stop offset="1" stop-color="#22d3ee"/>
+      </linearGradient>
+      <symbol id="logo" viewBox="0 0 32 32">
+        <rect x="3"  y="12" width="4" height="8"  rx="2" fill="url(#rave-grad)"/>
+        <rect x="10" y="6"  width="4" height="20" rx="2" fill="url(#rave-grad)"/>
+        <rect x="17" y="2"  width="4" height="28" rx="2" fill="url(#rave-grad)"/>
+        <rect x="24" y="9"  width="4" height="14" rx="2" fill="url(#rave-grad)"/>
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></symbol>
+      <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M9 4v16" stroke="currentColor" stroke-width="1.8"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z M14 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" stroke="currentColor" stroke-width="1.6" fill="none"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.8" fill="none"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/></symbol>
+      <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- ================= Boot / server startup ================= -->
+  <section id="boot-view" class="boot">
+    <div class="drag-strip"></div>
+    <div class="boot-box">
+      <svg class="logo-xl boot-logo"><use href="#logo"/></svg>
+      <h1>Rave AI</h1>
+      <div class="boot-status" id="boot-status">Starting…</div>
+      <div class="boot-error hidden" id="boot-error">
+        <p id="boot-error-text"></p>
+        <div class="boot-actions">
+          <button class="btn primary" id="boot-retry">Retry</button>
+          <button class="btn" id="boot-continue">Continue anyway</button>
+        </div>
+        <p class="muted" id="boot-hint"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Sign in / sign up ================= -->
+  <section id="auth-view" class="auth hidden">
+    <div class="drag-strip"></div>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <svg class="logo-lg"><use href="#logo"/></svg>
+        <h1>Rave AI</h1>
+        <p class="muted" id="auth-sub">Your private AI, on your own hardware.</p>
+      </div>
+
+      <div class="segmented" role="tablist">
+        <button id="tab-login" class="active" role="tab">Sign in</button>
+        <button id="tab-signup" role="tab">Create account</button>
+      </div>
+
+      <form id="login-form" class="form" autocomplete="on">
+        <label>Username<input name="username" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <label class="check"><input type="checkbox" name="remember" checked> Keep me signed in</label>
+        <p class="form-error" hidden></p>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+
+      <form id="signup-form" class="form hidden" autocomplete="off">
+        <label>Username<input name="username" autocomplete="username" required minlength="3" maxlength="32"></label>
+        <label><span>Email <span class="opt">(optional)</span></span><input name="email" type="email" autocomplete="email"></label>
+        <div class="row">
+          <label>Password<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
+          <label>Confirm<input name="confirm" type="password" autocomplete="new-password" required minlength="8"></label>
+        </div>
+        <div class="divider"><span>Connect to your Rave AI server</span></div>
+        <label>Server URL<input name="serverUrl" placeholder="http://localhost:8000"></label>
+        <label>API key
+          <span class="input-wrap">
+            <input name="apiKey" type="password" required spellcheck="false" placeholder="rave_… or the API_KEY from your server's .env">
+            <button type="button" class="icon-btn reveal" title="Show key"><svg><use href="#i-eye"/></svg></button>
+          </span>
+        </label>
+        <p class="hint">Your key is checked with the server, then stored encrypted on this PC.</p>
+        <label class="check"><input type="checkbox" name="remember" checked> Keep me signed in</label>
+        <p class="form-error" hidden></p>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= Main app ================= -->
+  <section id="app-view" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand"><svg class="logo-sm"><use href="#logo"/></svg><span>Rave AI</span></div>
+        <button class="icon-btn" id="collapse-btn" title="Collapse sidebar"><svg><use href="#i-sidebar"/></svg></button>
+      </div>
+      <button class="new-chat" id="new-chat"><span class="plus"><svg><use href="#i-plus"/></svg></span>New chat</button>
+      <nav class="chat-list" id="chat-list"></nav>
+      <div class="sidebar-foot">
+        <div class="model-picker up" id="model-picker">
+          <div class="model-menu hidden" id="model-menu"></div>
+          <button class="model-select" id="model-btn" title="Switch model">
+            <span class="dot" id="status-dot"></span>
+            <span class="label" id="model-current">Connecting…</span>
+            <svg class="caret"><use href="#i-caret"/></svg>
+          </button>
+        </div>
+        <button class="user-btn" id="user-btn" title="Settings">
+          <span class="avatar" id="user-avatar">?</span>
+          <span class="user-name" id="user-name"></span>
+          <svg class="gear"><use href="#i-gear"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main empty" id="main">
+      <header class="topbar">
+        <button class="icon-btn hidden" id="expand-btn" title="Open sidebar"><svg><use href="#i-sidebar"/></svg></button>
+        <div class="chat-title" id="chat-title"></div>
+      </header>
+
+      <div class="scroller" id="scroller">
+        <div class="welcome" id="welcome">
+          <svg class="logo-xl"><use href="#logo"/></svg>
+          <h2 id="greeting">Hello</h2>
+        </div>
+        <div class="thread" id="thread"></div>
+      </div>
+
+      <div class="composer-dock">
+        <form class="composer" id="composer">
+          <textarea id="input" rows="1" placeholder="How can Rave AI help you today?" autofocus></textarea>
+          <div class="composer-bar">
+            <div class="toggles">
+              <button type="button" class="chip" id="toggle-rag" title="Answer using your uploaded documents"><svg><use href="#i-doc"/></svg>Documents</button>
+              <button type="button" class="chip" id="toggle-web" title="Answer using approved websites"><svg><use href="#i-globe"/></svg>Web</button>
+            </div>
+            <button type="submit" class="send" id="send-btn" title="Send (Enter)" disabled><svg><use href="#i-send"/></svg></button>
+          </div>
+        </form>
+        <p class="disclaimer">Rave AI can make mistakes. Check important info.</p>
+      </div>
+
+      <div class="switch-overlay hidden" id="switch-overlay">
+        <div class="box">
+          <svg class="logo-xl"><use href="#logo"/></svg>
+          <div id="switch-text">Loading model…</div>
+          <div class="muted" style="font-size:12.5px">This can take up to a minute.</div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ================= Settings ================= -->
+  <div class="modal-backdrop hidden" id="settings">
+    <div class="modal" role="dialog" aria-labelledby="settings-title">
+      <div class="modal-head">
+        <h3 id="settings-title">Settings</h3>
+        <button class="icon-btn" id="settings-close" title="Close"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <section>
+          <h4>Account</h4>
+          <div class="kv"><span>Username</span><strong id="s-username"></strong></div>
+          <div class="kv"><span>Email</span><strong id="s-email"></strong></div>
+          <div class="kv"><span>Sign-in</span><strong id="s-mode"></strong></div>
+        </section>
+        <section>
+          <h4>Connection</h4>
+          <form id="conn-form" class="form">
+            <label>Server URL<input name="serverUrl"></label>
+            <label>API key
+              <span class="input-wrap">
+                <input name="apiKey" type="password" spellcheck="false" placeholder="">
+                <button type="button" class="icon-btn reveal" title="Show key"><svg><use href="#i-eye"/></svg></button>
+              </span>
+            </label>
+            <p class="hint">Leave the key empty to keep the current one.</p>
+            <p class="form-error" hidden></p>
+            <p class="form-ok" hidden>Saved and verified.</p>
+            <button class="btn" type="submit">Save &amp; verify</button>
+          </form>
+        </section>
+      </div>
+      <div class="modal-foot">
+        <span class="muted" id="s-version"></span>
+        <button class="btn danger-ghost" id="logout-btn">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="vendor/marked.umd.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="vendor/highlight.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

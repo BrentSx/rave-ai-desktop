@@ -1,0 +1,49 @@
+{
+  "name": "rave-ai-desktop",
+  "productName": "Rave AI",
+  "version": "1.0.0",
+  "description": "Rave AI desktop client",
+  "author": "Rave AI",
+  "license": "MIT",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/copy-vendor.js",
+    "start": "electron .",
+    "build": "node scripts/copy-vendor.js && electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "ai.rave.desktop",
+    "productName": "Rave AI",
+    "copyright": "Rave AI",
+    "compression": "maximum",
+    "electronLanguages": ["en-US"],
+    "removePackageScripts": true,
+    "afterPack": "scripts/afterpack.js",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*.js",
+      "renderer/**",
+      "config/**",
+      "assets/icon.*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.png"
+    },
+    "portable": {
+      "artifactName": "RaveAI.exe"
+    }
+  },
+  "devDependencies": {
+    "@highlightjs/cdn-assets": "^11.12.0",
+    "dompurify": "^3.4.16",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "marked": "^18.0.14"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "defaultServerUrl": "http://localhost:8000",
+  "auth": { "mode": "local", "remoteBaseUrl": "" },
+  "server": {
+    "autostart": false,
+    "cwd": "",
+    "command": "py",
+    "args": ["-3.14", "-u", "-m", "app"],
+    "healthPath": "/api/v1/health",
+    "startTimeoutMs": 180000
+  }
+}
