@@ -6,6 +6,16 @@ runs on your own machine or server, not in the app.
 
 ![sign in](assets/icon.png)
 
+## Download
+
+Grab **RaveAI.exe** from the [**Releases**](https://github.com/BrentSx/rave-ai-desktop/releases)
+page — a single portable file, no install. It connects to the Rave AI server at
+`https://ai.ravealts.com`; you'll need an **API key** to sign in (ask the server
+admin for one). First launch shows a Windows SmartScreen warning because the app
+isn't code-signed — click **More info → Run anyway**.
+
+Prefer to build it yourself or point it at a different server? See [Build](#build) below.
+
 ## Features
 
 - **Login / accounts** stored locally; API keys encrypted with the OS keystore (Windows DPAPI)
