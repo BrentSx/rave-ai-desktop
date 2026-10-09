@@ -390,3 +390,70 @@ svg { width: 18px; height: 18px; flex: none; }
   .sidebar { position: absolute; z-index: 10; height: 100%; box-shadow: 20px 0 60px rgba(0, 0, 0, .5); }
   .welcome h2 { font-size: 30px; }
 }
+
+/* ---- assistant chip + integrations ---------------------------------------- */
+.chip.muted-chip { opacity: .45; }
+
+.modal.small { max-width: 440px; }
+
+#integrations-section .integration {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--panel-2);
+}
+.int-info { display: flex; align-items: center; gap: 12px; }
+.int-icon { width: 22px; height: 22px; color: var(--blue-hi); flex: none; }
+.int-info strong { font-size: 14px; }
+.int-info .muted { font-size: 12.5px; }
+
+.int-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+}
+.switch span { display: inline-flex; align-items: center; gap: 8px; }
+.switch svg { width: 16px; height: 16px; color: var(--muted); }
+.switch input { accent-color: var(--blue); width: 36px; height: 18px; }
+
+.mem-head { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 6px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.btn.tiny { height: 28px; padding: 0 10px; font-size: 12px; }
+.mem-list { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
+.mem-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel); }
+.mem-kind { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--blue-hi);
+  background: rgba(59,130,246,.12); padding: 2px 7px; border-radius: 5px; flex: none; }
+.mem-text { flex: 1; font-size: 13px; color: var(--text); }
+.mem-item .icon-btn { flex: none; }
+.mem-empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+#jarvis-state.warn { color: var(--blue-hi); }
+
+/* ---- server quick-switch -------------------------------------------------- */
+.server-switch { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.server-chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px;
+  border-radius: 10px; border: 1px solid var(--border-2); background: var(--panel);
+  color: var(--text-2); font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.server-chip:hover { background: var(--panel-2); color: var(--text); }
+.server-chip.active { color: var(--blue-hi); border-color: rgba(59,130,246,.55); background: rgba(59,130,246,.12); cursor: default; }
+.sc-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  padding: 2px 6px; border-radius: 5px; background: rgba(59,130,246,.18); color: var(--blue-hi); }
+.sc-badge.dim { background: var(--panel-3); color: var(--muted); }
+
+/* ---- Google setup dialog -------------------------------------------------- */
+.steps { margin: 6px 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 7px;
+  font-size: 13.5px; color: var(--text-2); line-height: 1.45; }
+.steps strong { color: var(--text); }
+.ext-link { color: var(--blue-hi); text-decoration: none; border-bottom: 1px solid rgba(96,165,250,.35); }
+.ext-link:hover { border-bottom-color: var(--blue-hi); }
+.paste-label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.paste-label textarea {
+  width: 100%; resize: vertical; min-height: 110px; padding: 10px 12px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border-2); color: var(--text);
+  font: 12.5px var(--mono); outline: none;
+}
+.paste-label textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+
+.warn-text { display: block; margin-top: 4px; color: var(--blue-hi); }
+.note-line { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(59,130,246,.08);
+  border: 1px solid rgba(59,130,246,.25); color: var(--text-2); font-size: 12.5px; line-height: 1.45; }
+.note-line strong { color: var(--text); }

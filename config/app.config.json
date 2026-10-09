@@ -1,5 +1,24 @@
 {
-  "defaultServerUrl": "https://ai.ravealts.com",
-  "auth": { "mode": "local", "remoteBaseUrl": "" },
-  "server": { "autostart": false, "cwd": "", "command": "py", "args": ["-3.14", "-u", "-m", "app"], "healthPath": "/api/v1/health", "startTimeoutMs": 180000 }
+  "defaultServerUrl": "http://localhost:8000",
+  "knownServers": ["http://localhost:8000", "https://ai.ravealts.com"],
+  "auth": {
+    "mode": "local",
+    "remoteBaseUrl": ""
+  },
+  "server": {
+    "autostart": true,
+    "cwd": "",
+    "command": "py",
+    "args": ["-3.14", "-u", "-m", "app"],
+    "healthPath": "/api/v1/health",
+    "startTimeoutMs": 180000
+  },
+  "jarvis": {
+    "enabled": true,
+    "autostart": true,
+    "url": "http://127.0.0.1:8900",
+    "command": "py",
+    "args": ["-3.14", "-u", "-m", "jarvis.serve"],
+    "startTimeoutMs": 30000
+  }
 }

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("rave", {
   account: {
     get: call("account:get"),
     updateConnection: call("account:update-connection"),
+    switchServer: call("account:switch-server"),
   },
   models: { list: call("models:list"), switch: call("models:switch") },
   serverStatus: call("server:status"),
@@ -33,5 +34,15 @@ contextBridge.exposeInMainWorld("rave", {
     send: call("chat:send"),
     stop: call("chat:stop"),
     onEvent: (cb) => ipcRenderer.on("chat:event", (_e, payload) => cb(payload)),
+  },
+  jarvis: {
+    status: call("jarvis:status"),
+    toggle: call("jarvis:toggle"),
+    connectGoogle: call("jarvis:connect-google"),
+    disconnectGoogle: call("jarvis:disconnect-google"),
+    saveGoogleClient: call("jarvis:save-google-client"),
+    memoryList: call("jarvis:memory-list"),
+    memoryForget: call("jarvis:memory-forget"),
+    confirm: call("jarvis:confirm"),
   },
 });

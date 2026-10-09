@@ -6,6 +6,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu } = require("electron");
 const { RaveApi, normalizeServerUrl } = require("./api");
 const { createAuthProvider, AuthError } = require("./auth");
 const { ServerManager } = require("./server");
+const { JarvisManager } = require("./jarvis");
 const { readJson, writeJson } = require("./store");
 
 // --- configuration ------------------------------------------------------
@@ -20,6 +21,7 @@ function loadConfig() {
 let config;
 let auth;
 let serverManager = null;
+let jarvisManager = null;
 let session = null; // { user, apiKey, serverUrl }
 let api = null;
 let win = null;
@@ -32,6 +34,20 @@ function setSession(s) {
 
 function requireSession() {
   if (!session) throw new AuthError("You're signed out.");
+}
+
+// The servers the UI offers for quick switching: config presets + any this
+// account has saved a key for + whatever is active now, de-duplicated.
+function knownServers() {
+  const presets = (config.knownServers || []).map((u) => String(u).replace(/\/+$/, ""));
+  const saved = (typeof auth.listServers === "function" ? auth.listServers(session.user.id) : [])
+    .map((s) => ({ url: String(s.url).replace(/\/+$/, ""), hasKey: true }));
+  const byUrl = new Map();
+  for (const u of presets) byUrl.set(u, { url: u, hasKey: false });
+  for (const s of saved) byUrl.set(s.url, { url: s.url, hasKey: true });
+  const active = String(session.serverUrl).replace(/\/+$/, "");
+  if (!byUrl.has(active)) byUrl.set(active, { url: active, hasKey: true });
+  return [...byUrl.values()].map((s) => ({ ...s, active: s.url === active }));
 }
 
 // --- chats (stored per user) -----------------------------------------------
@@ -70,6 +86,7 @@ function registerIpc() {
     defaultServerUrl: config.defaultServerUrl,
     serverIsLocal: serverManager.isLocal(),
     serverAutostart: (config.server || {}).autostart !== false,
+    jarvisEnabled: jarvisManager.enabled,
     version: app.getVersion(),
   }));
 
@@ -112,7 +129,12 @@ function registerIpc() {
   handle("account:get", async () => {
     requireSession();
     const k = session.apiKey;
-    return { ...session.user, serverUrl: session.serverUrl, apiKeyHint: `${k.slice(0, 5)}…${k.slice(-4)}` };
+    return {
+      ...session.user,
+      serverUrl: session.serverUrl,
+      apiKeyHint: `${k.slice(0, 5)}…${k.slice(-4)}`,
+      servers: knownServers(),
+    };
   });
 
   handle("account:update-connection", async ({ serverUrl, apiKey }) => {
@@ -121,6 +143,19 @@ function registerIpc() {
     const key = (apiKey || "").trim() || session.apiKey;
     await new RaveApi(url, key).verifyKey();
     setSession(await auth.updateConnection(session.user.id, { serverUrl: url, apiKey: apiKey ? key : undefined }));
+  });
+
+  // One-click switch to another server. Reuses the key already saved for that URL;
+  // if there isn't one, tells the UI to ask for a key (needsKey).
+  handle("account:switch-server", async ({ serverUrl, apiKey }) => {
+    requireSession();
+    const url = normalizeServerUrl(serverUrl);
+    let key = (apiKey || "").trim();
+    if (!key && typeof auth.getServerKey === "function") key = auth.getServerKey(session.user.id, url) || "";
+    if (!key) return { needsKey: true, url };
+    await new RaveApi(url, key).verifyKey();
+    setSession(await auth.updateConnection(session.user.id, { serverUrl: url, apiKey: key }));
+    return { ok: true, url };
   });
 
   handle("models:list", async () => {
@@ -181,7 +216,7 @@ function registerIpc() {
     }
   });
 
-  handle("chat:send", async ({ chatId, message, useRag, useWeb }) => {
+  handle("chat:send", async ({ chatId, message, useRag, useWeb, assistant }) => {
     requireSession();
     const text = String(message || "").trim();
     if (!text) throw new Error("Message is empty");
@@ -202,22 +237,46 @@ function registerIpc() {
     streams.set(requestId, controller);
     const client = api;
     const ownerFile = chatsFile();
+    const useJarvis = !!assistant && jarvisManager.enabled;
 
     (async () => {
       let reply = "";
       let sources = [];
       let error = null;
       try {
-        await client.streamChat(
-          { message: text, conversation_id: chat.conversationId, use_rag: !!useRag, use_web: !!useWeb },
-          controller.signal,
-          (type, data) => {
-            if (type === "start") sources = data.sources || [];
-            else if (type === "token") reply += data.token;
-            else if (type === "error") error = data.detail || "Generation failed";
-            send("chat:event", { requestId, chatId: chat.id, type, data });
-          },
-        );
+        if (useJarvis) {
+          // The assistant returns one finished reply (no token stream); we forward
+          // its progress (status / confirm) and emit the reply as a single token.
+          await jarvisManager.streamChat(
+            { message: text, session: chat.conversationId },
+            controller.signal,
+            (type, data) => {
+              if (type === "start") {
+                send("chat:event", { requestId, chatId: chat.id, type: "start", data: { sources: [] } });
+              } else if (type === "status") {
+                send("chat:event", { requestId, chatId: chat.id, type: "status", data });
+              } else if (type === "confirm") {
+                send("chat:event", { requestId, chatId: chat.id, type: "confirm", data });
+              } else if (type === "done") {
+                reply = data.reply || "";
+                send("chat:event", { requestId, chatId: chat.id, type: "token", data: { token: reply } });
+              } else if (type === "error") {
+                error = data.detail || "The assistant hit a problem.";
+              }
+            },
+          );
+        } else {
+          await client.streamChat(
+            { message: text, conversation_id: chat.conversationId, use_rag: !!useRag, use_web: !!useWeb },
+            controller.signal,
+            (type, data) => {
+              if (type === "start") sources = data.sources || [];
+              else if (type === "token") reply += data.token;
+              else if (type === "error") error = data.detail || "Generation failed";
+              send("chat:event", { requestId, chatId: chat.id, type, data });
+            },
+          );
+        }
       } catch (e) {
         error = e.message;
       } finally {
@@ -238,6 +297,24 @@ function registerIpc() {
 
     return { requestId, chat: summary(chat) };
   });
+
+  // --- JARVIS assistant (local bridge) ---------------------------------------
+  handle("jarvis:status", async () => {
+    if (!jarvisManager.enabled) return { enabled: false };
+    try {
+      return { enabled: true, ready: true, ...(await jarvisManager.status()) };
+    } catch (e) {
+      return { enabled: true, ready: false, error: e.message };
+    }
+  });
+
+  handle("jarvis:toggle", async ({ name, on }) => jarvisManager.toggle(name, !!on));
+  handle("jarvis:connect-google", async () => jarvisManager.connectGoogle());
+  handle("jarvis:disconnect-google", async () => jarvisManager.disconnectGoogle());
+  handle("jarvis:save-google-client", async ({ clientJson }) => jarvisManager.saveGoogleClient(clientJson));
+  handle("jarvis:memory-list", async () => jarvisManager.memoryList());
+  handle("jarvis:memory-forget", async ({ query }) => jarvisManager.memoryForget(query));
+  handle("jarvis:confirm", async ({ id, approve }) => jarvisManager.confirmRespond(id, !!approve));
 
   handle("chat:stop", async ({ requestId }) => {
     const c = streams.get(requestId);
@@ -298,12 +375,15 @@ if (!app.requestSingleInstanceLock()) {
     auth = createAuthProvider(config);
     serverManager = new ServerManager(config);
     serverManager.boot();               // start the API server early, in the background
+    jarvisManager = new JarvisManager(config);
+    jarvisManager.boot();               // start the local assistant bridge too
     registerIpc();
     createWindow();
   });
 
   app.on("before-quit", () => {
     if (serverManager) serverManager.stop();   // stop the server we started
+    if (jarvisManager) jarvisManager.stop();   // and the assistant bridge
   });
 
   app.on("window-all-closed", () => app.quit());

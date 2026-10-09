@@ -45,13 +45,15 @@ class LocalAuthProvider {
     validateSignup({ username, email, password, apiKey });
     const users = this._users();
     if (this._find(users, username)) throw new AuthError("That username is already taken.");
+    const keyEnc = encrypt(apiKey.trim());
     const record = {
       id: `usr_${crypto.randomBytes(8).toString("hex")}`,
       username: username.trim(),
       email: (email || "").trim(),
       password: hashPassword(password),
-      apiKeyEnc: encrypt(apiKey.trim()),
+      apiKeyEnc: keyEnc,
       serverUrl,
+      servers: { [serverUrl]: keyEnc },   // remember a key per server, for quick switching
       createdAt: new Date().toISOString(),
     };
     users.push(record);
@@ -108,10 +110,34 @@ class LocalAuthProvider {
     const users = this._users();
     const record = users.find((u) => u.id === userId);
     if (!record) throw new AuthError("Account not found.");
-    if (apiKey) record.apiKeyEnc = encrypt(apiKey.trim());
-    if (serverUrl) record.serverUrl = serverUrl;
+    const url = serverUrl || record.serverUrl;
+    record.servers = record.servers || {};
+    // Use the new key, else the key already remembered for this server, else the current one.
+    const keyEnc = apiKey ? encrypt(apiKey.trim()) : (record.servers[url] || record.apiKeyEnc);
+    record.serverUrl = url;
+    record.apiKeyEnc = keyEnc;
+    record.servers[url] = keyEnc;        // remember it for next time
     this._save(users);
     return this._session(record);
+  }
+
+  /** URLs this account already has a saved key for (most-recently-used not tracked; insertion order). */
+  listServers(userId) {
+    const record = this._users().find((u) => u.id === userId);
+    if (!record) return [];
+    const servers = record.servers || (record.serverUrl ? { [record.serverUrl]: record.apiKeyEnc } : {});
+    return Object.keys(servers).map((url) => ({ url, active: url === record.serverUrl }));
+  }
+
+  /** Decrypted saved key for a given server URL, or null. */
+  getServerKey(userId, url) {
+    const record = this._users().find((u) => u.id === userId);
+    if (!record || !record.servers || !record.servers[url]) return null;
+    try {
+      return decrypt(record.servers[url]);
+    } catch {
+      return null;
+    }
   }
 }
 

@@ -36,6 +36,10 @@
       <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
       <symbol id="i-caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></symbol>
+      <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M3 7l9 6 9-6" stroke="currentColor" stroke-width="1.8" fill="none"/></symbol>
+      <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 4 3 3 0 0 0 5 1V4.5A2.5 2.5 0 0 0 9 4zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 4 3 3 0 0 1-5 1" stroke="currentColor" stroke-width="1.6" fill="none"/></symbol>
     </defs>
   </svg>
 
@@ -148,6 +152,7 @@
           <textarea id="input" rows="1" placeholder="How can Rave AI help you today?" autofocus></textarea>
           <div class="composer-bar">
             <div class="toggles">
+              <button type="button" class="chip" id="toggle-assistant" title="Rave assistant: memory, calendar, email and tools"><svg><use href="#i-spark"/></svg>Assistant</button>
               <button type="button" class="chip" id="toggle-rag" title="Answer using your uploaded documents"><svg><use href="#i-doc"/></svg>Documents</button>
               <button type="button" class="chip" id="toggle-web" title="Answer using approved websites"><svg><use href="#i-globe"/></svg>Web</button>
             </div>
@@ -181,8 +186,35 @@
           <div class="kv"><span>Email</span><strong id="s-email"></strong></div>
           <div class="kv"><span>Sign-in</span><strong id="s-mode"></strong></div>
         </section>
+        <section id="integrations-section">
+          <h4>Rave Assistant</h4>
+          <p class="hint" id="jarvis-state">Checking the local assistant…</p>
+          <div class="integration" id="int-google">
+            <div class="int-info">
+              <svg class="int-icon"><use href="#i-cal"/></svg>
+              <div>
+                <strong>Google — Calendar &amp; Gmail</strong>
+                <div class="muted" id="google-state">Not connected</div>
+              </div>
+            </div>
+            <button class="btn" id="google-btn">Connect</button>
+          </div>
+          <div class="int-toggles">
+            <label class="switch"><span><svg><use href="#i-cal"/></svg>Calendar</span><input type="checkbox" data-int="calendar"></label>
+            <label class="switch"><span><svg><use href="#i-mail"/></svg>Email</span><input type="checkbox" data-int="email"></label>
+            <label class="switch"><span><svg><use href="#i-brain"/></svg>Memory</span><input type="checkbox" data-int="memory"></label>
+            <label class="switch"><span><svg><use href="#i-globe"/></svg>Web for assistant</span><input type="checkbox" data-int="web"></label>
+          </div>
+          <div class="mem-head">
+            <span>Memory <span class="muted" id="mem-count"></span></span>
+            <button class="btn tiny" id="mem-refresh">Refresh</button>
+          </div>
+          <div class="mem-list" id="mem-list"></div>
+        </section>
         <section>
           <h4>Connection</h4>
+          <p class="hint">Switch which Rave AI server this account uses.</p>
+          <div class="server-switch" id="server-switch"></div>
           <form id="conn-form" class="form">
             <label>Server URL<input name="serverUrl"></label>
             <label>API key
@@ -201,6 +233,52 @@
       <div class="modal-foot">
         <span class="muted" id="s-version"></span>
         <button class="btn danger-ghost" id="logout-btn">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Confirmation (assistant actions) ================= -->
+  <div class="modal-backdrop hidden" id="confirm-modal">
+    <div class="modal small" role="dialog" aria-labelledby="confirm-title">
+      <div class="modal-head">
+        <h3 id="confirm-title">Confirm action</h3>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-text">The assistant wants to perform an action.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="confirm-deny">Deny</button>
+        <button class="btn primary" id="confirm-allow">Allow</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Google setup (one-time) ================= -->
+  <div class="modal-backdrop hidden" id="google-modal">
+    <div class="modal" role="dialog" aria-labelledby="google-title">
+      <div class="modal-head">
+        <h3 id="google-title">Set up Google (Calendar &amp; Gmail)</h3>
+        <button class="icon-btn" id="google-close" title="Close"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">A one-time setup to let Rave use <em>your</em> Google account. It stays entirely on this PC — your sign-in is never shared with anyone. About 5 minutes.</p>
+        <ol class="steps">
+          <li>Open the <a href="https://console.cloud.google.com/" class="ext-link">Google Cloud Console</a> and create a project (any name).</li>
+          <li><strong>APIs &amp; Services → Library</strong>: enable <strong>Gmail API</strong> and <strong>Google Calendar API</strong> (search each, click Enable).</li>
+          <li><strong>APIs &amp; Services → OAuth consent screen</strong>: choose <strong>External</strong>, fill in the app name and your email.
+            <strong class="warn-text">Then, under “Test users”, click “Add users” and add your own Gmail address.</strong> Without this, Google blocks sign-in with a “not completed verification” error.</li>
+          <li><strong>Credentials → Create credentials → OAuth client ID</strong>: choose <strong>Desktop app</strong>, create it, then <strong>Download JSON</strong>.</li>
+          <li>Open that downloaded file, copy everything, and paste it below.</li>
+        </ol>
+        <label class="paste-label">OAuth client JSON
+          <textarea id="google-json" rows="6" spellcheck="false" placeholder='{"installed":{"client_id":"…","client_secret":"…", …}}'></textarea>
+        </label>
+        <p class="note-line">After you save, your browser opens. You’ll see an “unverified app” screen — that’s expected (it’s your own app). Click <strong>Advanced → Go to Rave (unsafe)</strong>, pick the account you added as a test user, and allow access.</p>
+        <p class="form-error" id="google-err" hidden></p>
+      </div>
+      <div class="modal-foot">
+        <span class="muted">Paste the whole file — Rave keeps it on this PC only.</span>
+        <button class="btn primary" id="google-save">Save &amp; continue</button>
       </div>
     </div>
   </div>

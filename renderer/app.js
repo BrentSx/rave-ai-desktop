@@ -21,10 +21,12 @@
     info: null,
     user: null,
     prefs: { useRag: true, useWeb: false },
+    assistant: true,   // Rave assistant mode (memory + tools) — on by default
     chats: [],
     chatId: null,
     streaming: null, // { requestId, chatId, text, sources, node, body, pending }
     statusTimer: null,
+    pendingConfirm: null, // { id }
   };
 
   // ------------------------------------------------------------------ helpers
@@ -477,6 +479,7 @@
         message: text,
         useRag: state.prefs.useRag,
         useWeb: state.prefs.useWeb,
+        assistant: state.assistant,
       });
     } catch (e) {
       node.remove();
@@ -524,6 +527,10 @@
     if (evt.type === "start") {
       s.sources = evt.data.sources || [];
       paintStream();
+    } else if (evt.type === "status") {
+      setStreamStatus(s, evt.data);
+    } else if (evt.type === "confirm") {
+      askConfirm(evt.data);
     } else if (evt.type === "token") {
       s.text += evt.data.token;
       paintStream();
@@ -531,6 +538,49 @@
       finishStream(evt.data);
     }
   }
+
+  const TOOL_LABELS = {
+    "memory.search": "Checking memory", "memory.list": "Checking memory",
+    "memory.save": "Saving to memory", "memory.forget": "Updating memory",
+    "history.search": "Looking back through our chat",
+    "calendar.agenda": "Checking your calendar", "calendar.next": "Checking your calendar",
+    "calendar.free": "Checking your availability", "calendar.create": "Creating the event",
+    "calendar.move": "Rescheduling", "calendar.cancel": "Cancelling the event",
+    "email.unread": "Checking your inbox", "email.search": "Searching your email",
+    "email.read": "Reading the email", "email.draft": "Drafting the email",
+    "email.send": "Sending the email", "email.mark_read": "Updating your inbox",
+  };
+
+  // While the assistant works, show what it's doing in place of "Thinking…".
+  function setStreamStatus(s, data) {
+    if (!s || !s.node || !s.node.isConnected || s.text) return;
+    const thinking = $(".thinking", s.body);
+    if (!thinking) return;
+    if (data.kind === "tool") thinking.textContent = `${TOOL_LABELS[data.name] || "Working on it"}…`;
+    else if (data.kind === "thinking" && thinking.textContent !== "Thinking…") {
+      /* keep the last tool label until a new one arrives */
+    } else if (data.kind === "thinking") thinking.textContent = "Thinking…";
+  }
+
+  // ------------------------------------------------------------------ confirmations
+  function askConfirm(data) {
+    state.pendingConfirm = { id: data.id };
+    $("#confirm-text").textContent = data.prompt || "Allow this action?";
+    $("#confirm-modal").classList.remove("hidden");
+  }
+  async function resolveConfirm(approve) {
+    const p = state.pendingConfirm;
+    state.pendingConfirm = null;
+    $("#confirm-modal").classList.add("hidden");
+    if (!p) return;
+    try {
+      await window.rave.jarvis.confirm({ id: p.id, approve });
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+  $("#confirm-allow").addEventListener("click", () => resolveConfirm(true));
+  $("#confirm-deny").addEventListener("click", () => resolveConfirm(false));
 
   function finishStream({ error, stopped }) {
     const s = state.streaming;
@@ -596,8 +646,13 @@
 
   // ------------------------------------------------------------------ toggles
   function syncChips() {
+    $("#toggle-assistant").classList.toggle("on", !!state.assistant);
     $("#toggle-rag").classList.toggle("on", !!state.prefs.useRag);
     $("#toggle-web").classList.toggle("on", !!state.prefs.useWeb);
+    // In assistant mode the brain-side Documents/Web chips don't apply.
+    const off = !!state.assistant;
+    $("#toggle-rag").classList.toggle("muted-chip", off);
+    $("#toggle-web").classList.toggle("muted-chip", off);
   }
   function toggle(key) {
     state.prefs[key] = !state.prefs[key];
@@ -606,6 +661,11 @@
   }
   $("#toggle-rag").addEventListener("click", () => toggle("useRag"));
   $("#toggle-web").addEventListener("click", () => toggle("useWeb"));
+  $("#toggle-assistant").addEventListener("click", () => {
+    if (!state.info || !state.info.jarvisEnabled) return toast("The assistant isn't available.");
+    state.assistant = !state.assistant;
+    syncChips();
+  });
 
   // ------------------------------------------------------------------ model picker
   let models = [];
@@ -737,11 +797,218 @@
     f.apiKey.placeholder = `Current key: ${acct.apiKeyHint}`;
     showError(f, "");
     $(".form-ok", f).hidden = true;
+    renderServerSwitch(acct.servers || []);
     $("#settings").classList.remove("hidden");
+    refreshIntegrations();
+  }
+
+  function serverLabel(url) {
+    try {
+      const h = new URL(url).host;
+      if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(h)) return "Local";
+      return h;
+    } catch {
+      return url;
+    }
+  }
+
+  function renderServerSwitch(servers) {
+    const box = $("#server-switch");
+    box.textContent = "";
+    for (const s of servers) {
+      const btn = el("button", "server-chip" + (s.active ? " active" : ""));
+      btn.type = "button";
+      btn.appendChild(el("span", "sc-label", serverLabel(s.url)));
+      if (s.active) btn.appendChild(el("span", "sc-badge", "current"));
+      else if (!s.hasKey) btn.appendChild(el("span", "sc-badge dim", "needs key"));
+      btn.title = s.url;
+      if (!s.active) btn.addEventListener("click", () => switchServer(s.url));
+      box.appendChild(btn);
+    }
+  }
+
+  async function switchServer(url) {
+    try {
+      const res = await window.rave.account.switchServer({ serverUrl: url });
+      if (res && res.needsKey) {
+        const f = $("#conn-form");
+        f.serverUrl.value = url;
+        f.apiKey.value = "";
+        f.apiKey.focus();
+        toast(`Enter an API key for ${serverLabel(url)}, then Save & verify.`);
+        return;
+      }
+      toast(`Switched to ${serverLabel(url)}`);
+      const acct = await window.rave.account.get();
+      $("#conn-form").serverUrl.value = acct.serverUrl;
+      renderServerSwitch(acct.servers || []);
+      refreshStatus();
+      refreshModels();
+    } catch (e) {
+      toast(e.message);
+    }
   }
   function closeSettings() {
     $("#settings").classList.add("hidden");
   }
+
+  // ------------------------------------------------------------------ integrations
+  let jarvisStatus = null;
+
+  async function refreshIntegrations() {
+    const section = $("#integrations-section");
+    if (!state.info || !state.info.jarvisEnabled) {
+      section.classList.add("hidden");
+      return;
+    }
+    section.classList.remove("hidden");
+    try {
+      jarvisStatus = await window.rave.jarvis.status();
+    } catch (e) {
+      jarvisStatus = { ready: false, error: e.message };
+    }
+    const st = $("#jarvis-state");
+    if (!jarvisStatus.ready) {
+      st.textContent = jarvisStatus.error || "The local assistant isn't running yet.";
+      st.classList.add("warn");
+      return;
+    }
+    st.textContent = jarvisStatus.brain_online ? "Assistant ready." : "Assistant ready (brain offline).";
+    st.classList.remove("warn");
+
+    // Google connection — three states: needs setup, ready to authorize, connected.
+    const gbtn = $("#google-btn");
+    const gstate = $("#google-state");
+    gbtn.disabled = false;
+    if (!jarvisStatus.google_available) {
+      gstate.textContent = "Google libraries not installed";
+      gbtn.disabled = true;
+    } else if (jarvisStatus.google_connected) {
+      gstate.textContent = "Connected";
+      gbtn.textContent = "Disconnect";
+      gbtn.dataset.action = "disconnect";
+    } else if (jarvisStatus.google_has_client) {
+      gstate.textContent = "Set up — click Connect to sign in";
+      gbtn.textContent = "Connect";
+      gbtn.dataset.action = "connect";
+    } else {
+      gstate.textContent = "Not set up";
+      gbtn.textContent = "Set up Google";
+      gbtn.dataset.action = "setup";
+    }
+
+    // Toggles
+    const t = jarvisStatus.toggles || {};
+    document.querySelectorAll("#integrations-section [data-int]").forEach((cb) => {
+      cb.checked = !!t[cb.dataset.int];
+    });
+
+    // Memory count
+    $("#mem-count").textContent = jarvisStatus.memory ? `(${jarvisStatus.memory.memories})` : "";
+    refreshMemoryList();
+  }
+
+  async function refreshMemoryList() {
+    const list = $("#mem-list");
+    list.textContent = "Loading…";
+    try {
+      const { memories } = await window.rave.jarvis.memoryList();
+      list.textContent = "";
+      if (!memories.length) {
+        list.appendChild(el("div", "mem-empty", "Nothing remembered yet."));
+        return;
+      }
+      for (const m of memories) {
+        const row = el("div", "mem-item");
+        row.appendChild(el("span", "mem-kind", m.kind));
+        row.appendChild(el("span", "mem-text", m.text));
+        const del = el("button", "icon-btn");
+        del.title = "Forget";
+        del.appendChild(icon("i-trash"));
+        del.addEventListener("click", async () => {
+          try {
+            await window.rave.jarvis.memoryForget({ query: m.text });
+            refreshIntegrations();
+          } catch (e) { toast(e.message); }
+        });
+        row.appendChild(del);
+        list.appendChild(row);
+      }
+    } catch (e) {
+      list.textContent = e.message;
+    }
+  }
+
+  $("#google-btn").addEventListener("click", async (e) => {
+    const action = e.currentTarget.dataset.action;
+    if (action === "setup") return openGoogleSetup();
+    if (action === "disconnect") {
+      await busy(e.currentTarget, "Disconnecting…", async () => {
+        try {
+          const res = await window.rave.jarvis.disconnectGoogle();
+          toast((res && res.message) || "Google disconnected.");
+        } catch (err) { toast(err.message); }
+      });
+      return refreshIntegrations();
+    }
+    await runGoogleConnect(e.currentTarget);
+    refreshIntegrations();
+  });
+
+  // Runs the OAuth browser flow. If no client is set up yet, opens the setup dialog.
+  async function runGoogleConnect(btn) {
+    try {
+      const res = await busy(btn, "Opening browser…", () => window.rave.jarvis.connectGoogle());
+      if (res && res.google_connected) { toast("Google connected."); return true; }
+      if (res && res.need_client) { openGoogleSetup(); return false; }
+      toast((res && res.message) || "Couldn't connect to Google.");
+    } catch (err) {
+      toast(err.message);
+    }
+    return false;
+  }
+
+  // ---- Google one-time setup dialog ----
+  function openGoogleSetup() {
+    $("#google-json").value = "";
+    $("#google-err").hidden = true;
+    $("#google-modal").classList.remove("hidden");
+    setTimeout(() => $("#google-json").focus(), 0);
+  }
+  function closeGoogleSetup() { $("#google-modal").classList.add("hidden"); }
+  $("#google-close").addEventListener("click", closeGoogleSetup);
+  $("#google-modal").addEventListener("mousedown", (e) => e.target.id === "google-modal" && closeGoogleSetup());
+
+  $("#google-save").addEventListener("click", async (e) => {
+    const err = $("#google-err");
+    err.hidden = true;
+    const clientJson = $("#google-json").value.trim();
+    if (!clientJson) { err.textContent = "Paste the OAuth client JSON first."; err.hidden = false; return; }
+    try {
+      await busy(e.currentTarget, "Saving…", () => window.rave.jarvis.saveGoogleClient({ clientJson }));
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.hidden = false;
+      return;
+    }
+    closeGoogleSetup();
+    toast("Setup saved. Opening Google sign-in…");
+    await runGoogleConnect($("#google-btn"));   // straight into the browser consent
+    refreshIntegrations();
+  });
+
+  document.querySelectorAll("#integrations-section [data-int]").forEach((cb) => {
+    cb.addEventListener("change", async () => {
+      try {
+        jarvisStatus = await window.rave.jarvis.toggle({ name: cb.dataset.int, on: cb.checked });
+      } catch (e) {
+        toast(e.message);
+        cb.checked = !cb.checked;
+      }
+    });
+  });
+
+  $("#mem-refresh").addEventListener("click", refreshIntegrations);
 
   $("#user-btn").addEventListener("click", openSettings);
   $("#settings-close").addEventListener("click", closeSettings);
@@ -759,6 +1026,11 @@
       $(".form-ok", f).hidden = false;
       f.apiKey.value = "";
       refreshStatus();
+      refreshModels();
+      try {
+        const acct = await window.rave.account.get();
+        renderServerSwitch(acct.servers || []);
+      } catch { /* ignore */ }
     } catch (err) {
       showError(f, err.message);
     }
@@ -775,6 +1047,8 @@
 
   // ------------------------------------------------------------------ keyboard
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#google-modal").classList.contains("hidden")) return closeGoogleSetup();
+    if (e.key === "Escape" && !$("#confirm-modal").classList.contains("hidden")) return resolveConfirm(false);
     if (e.key === "Escape" && !$("#settings").classList.contains("hidden")) closeSettings();
     if (state.user && e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "n") {
       e.preventDefault();
