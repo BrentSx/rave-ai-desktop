@@ -21,7 +21,8 @@
     info: null,
     user: null,
     prefs: { useRag: true, useWeb: false },
-    assistant: true,   // Rave assistant mode (memory + tools) — on by default
+    assistant: true,   // Rave assistant mode (memory + tools) — on by default when available
+    assistantAvailable: false,  // set once we confirm the local bridge is running
     chats: [],
     chatId: null,
     streaming: null, // { requestId, chatId, text, sources, node, body, pending }
@@ -211,8 +212,34 @@
     newChat();
     refreshModels();
     refreshStatus();
+    updateAssistantAvailability();
     clearInterval(state.statusTimer);
     state.statusTimer = setInterval(refreshStatus, 8000);
+  }
+
+  // The assistant needs the local bridge. On a plain client (e.g. a downloaded
+  // exe with no backend) it won't be there — degrade quietly to cloud chat.
+  async function updateAssistantAvailability() {
+    let ready = false;
+    try {
+      if (state.info && state.info.jarvisEnabled) {
+        const s = await window.rave.jarvis.status();
+        ready = !!(s && s.enabled && s.ready);
+      }
+    } catch { /* not available */ }
+    state.assistantAvailable = ready;
+    const chip = $("#toggle-assistant");
+    if (!state.info || !state.info.jarvisEnabled) {
+      chip.classList.add("hidden");       // assistant disabled in this build
+    } else {
+      chip.classList.remove("hidden");
+      chip.classList.toggle("disabled", !ready);
+      chip.title = ready
+        ? "Rave assistant: memory, calendar, email and tools"
+        : "Assistant unavailable — the local Rave Assistant service isn't running";
+    }
+    if (!ready) state.assistant = false;
+    syncChips();
   }
 
   // The status dot and tooltip live on the model picker in the sidebar footer.
@@ -662,7 +689,10 @@
   $("#toggle-rag").addEventListener("click", () => toggle("useRag"));
   $("#toggle-web").addEventListener("click", () => toggle("useWeb"));
   $("#toggle-assistant").addEventListener("click", () => {
-    if (!state.info || !state.info.jarvisEnabled) return toast("The assistant isn't available.");
+    if (!state.assistantAvailable) {
+      updateAssistantAvailability();   // re-check in case the bridge just came up
+      return toast("The Rave Assistant service isn't running on this machine.");
+    }
     state.assistant = !state.assistant;
     syncChips();
   });

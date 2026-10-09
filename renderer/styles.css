@@ -457,3 +457,6 @@ svg { width: 18px; height: 18px; flex: none; }
 .note-line { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(59,130,246,.08);
   border: 1px solid rgba(59,130,246,.25); color: var(--text-2); font-size: 12.5px; line-height: 1.45; }
 .note-line strong { color: var(--text); }
+
+.chip.disabled { opacity: .4; cursor: not-allowed; }
+.chip.disabled:hover { background: transparent; color: var(--muted); }

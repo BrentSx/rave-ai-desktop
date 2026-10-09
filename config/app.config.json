@@ -1,12 +1,12 @@
 {
-  "defaultServerUrl": "http://localhost:8000",
-  "knownServers": ["http://localhost:8000", "https://ai.ravealts.com"],
+  "defaultServerUrl": "https://ai.ravealts.com",
+  "knownServers": ["https://ai.ravealts.com", "http://localhost:8000"],
   "auth": {
     "mode": "local",
     "remoteBaseUrl": ""
   },
   "server": {
-    "autostart": true,
+    "autostart": false,
     "cwd": "",
     "command": "py",
     "args": ["-3.14", "-u", "-m", "app"],
