@@ -21,6 +21,7 @@ class JarvisManager {
     this.config = config;
     this.cfg = config.jarvis || {};
     this.base = (this.cfg.url || "http://127.0.0.1:8900").replace(/\/+$/, "");
+    this.key = this.cfg.key || "";
     this.proc = null;
     this.managed = false;
     this.logStream = null;
@@ -31,8 +32,24 @@ class JarvisManager {
     return this.cfg.enabled !== false;
   }
 
+  isLocal() {
+    try {
+      const h = new URL(this.base).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+      return h === "localhost" || h === "127.0.0.1" || h === "::1";
+    } catch {
+      return false;
+    }
+  }
+
   url(p) {
     return `${this.base}${p}`;
+  }
+
+  authHeaders(json = false) {
+    const h = {};
+    if (this.key) h.Authorization = `Bearer ${this.key}`;
+    if (json) h["Content-Type"] = "application/json";
+    return h;
   }
 
   async probe(timeoutMs = 2000) {
@@ -52,6 +69,10 @@ class JarvisManager {
 
   async _boot() {
     if (await this.probe()) return { ready: true, managed: false };
+    // A remote bridge (on the VPS) is never started by this client.
+    if (!this.isLocal()) {
+      return { ready: false, error: `The assistant service at ${this.base} isn't reachable.` };
+    }
     if (this.cfg.autostart === false) {
       return { ready: false, error: "The JARVIS bridge isn't running." };
     }
@@ -120,7 +141,7 @@ class JarvisManager {
 
   // --- HTTP helpers -------------------------------------------------------
   async getJson(p, timeout = 8000) {
-    const res = await fetch(this.url(p), { signal: AbortSignal.timeout(timeout) });
+    const res = await fetch(this.url(p), { headers: this.authHeaders(), signal: AbortSignal.timeout(timeout) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || data.detail || `bridge error (${res.status})`);
     return data;
@@ -129,7 +150,7 @@ class JarvisManager {
   async postJson(p, body, timeout = 8000) {
     const res = await fetch(this.url(p), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.authHeaders(true),
       body: JSON.stringify(body || {}),
       signal: AbortSignal.timeout(timeout),
     });
@@ -157,7 +178,7 @@ class JarvisManager {
     try {
       res = await fetch(this.url("/chat"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.authHeaders(true),
         body: JSON.stringify(payload),
         signal,
       });
